@@ -1,0 +1,5 @@
+# Pruebas automatizadas y generación del notebook
+-r requirements.txt
+pytest>=8.0
+pyarrow>=14
+nbformat>=5.9

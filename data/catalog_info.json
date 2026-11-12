@@ -1,0 +1,28 @@
+{
+  "dataset": "FronkonGames/steam-games-dataset",
+  "consulted_at": "2026-11-11T22:04:05+00:00",
+  "revision_sha": "6c21457b9ebf0a6a7f5b91e11281d65d456ea30e",
+  "origin": "huggingface",
+  "tags_source": "games.csv de la misma revisión (la columna tags del parquet viene vacía); cruce por appID, 83348 filas completadas",
+  "license_note": "Los metadatos de la ficha de Hugging Face declaran 'license: mit'; el texto de la ficha indica que MIT corresponde al código de recolección (Steam-Games-Scraper) y no fija términos adicionales para los datos. Se conserva la atribución a FronkonGames.",
+  "criteria": {
+    "idioma": "inglés soportado y descripción en inglés (heurística)",
+    "descripcion": "short_description (>=60 caracteres) o detailed_description sin HTML (<=800)",
+    "precio": "numérico y >= 0 (USD)",
+    "duplicados": "se conserva el título con más reseñas",
+    "orden": "positive + negative, de mayor a menor",
+    "tamano_objetivo": 1000
+  },
+  "counts": {
+    "registros_originales": 124146,
+    "con_titulo": 124145,
+    "con_precio_valido": 124145,
+    "con_ingles_soportado": 110602,
+    "con_descripcion": 110527,
+    "descripcion_en_ingles": 109046,
+    "sin_duplicados": 107262,
+    "catalogo_final": 1000,
+    "catalogo_con_tags": 1000
+  },
+  "output_file": "catalog.csv"
+}

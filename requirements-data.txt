@@ -1,0 +1,4 @@
+# Solo para preparar el catálogo desde Hugging Face (scripts/prepare_data.py)
+-r requirements.txt
+datasets>=2.19
+pyarrow>=14

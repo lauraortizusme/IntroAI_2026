@@ -1,0 +1,6 @@
+# Dependencias de ejecución del agente
+openai>=1.40
+pandas>=2.0
+numpy>=1.24
+gradio>=4.44
+python-dotenv>=1.0
