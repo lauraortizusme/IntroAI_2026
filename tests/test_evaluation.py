@@ -111,3 +111,93 @@ def test_recheck_recalcula_desde_el_json_sin_api(tmp_path, catalog):
     assert row["chequeos"]["mencionados_sin_respaldo_en_herramientas"] == []
     assert row["chequeos"]["titulos_del_catalogo_mencionados"] == ["Hexa Wars"]
     assert "recalculados" in md.read_text(encoding="utf-8")
+
+
+# --- Línea base sin herramientas y métricas comparables (agente vs. línea base)
+def test_titulos_propuestos_solo_toma_juegos_enumerados():
+    answer = ("## 🌾 Mis tres recomendaciones\n"
+              "1. **Willowbrook Farm** — 14.99 USD — Windows\n"
+              "- **Moonfarm Story** — $12.00 USD\n"
+              "| **Turnip Hollow** | $9.99 | Windows |\n"
+              "- **Total: $24.98 USD**\n"
+              "⚠️ **La búsqueda quedó incompleta**")
+    assert ev.proposed_titles(answer) == ["Willowbrook Farm", "Moonfarm Story", "Turnip Hollow"]
+
+
+def test_metricas_detectan_titulos_fuera_del_catalogo_e_importes_que_no_coinciden(catalog):
+    answer = ("- **Willowbrook Farm** — 14.99 USD\n"       # precio correcto
+              "- **Turnip Hollow** — 19.99 USD\n"          # el catálogo dice 9.99
+              "- **Moonfarm Story** — 12.00 USD\n"          # no existe en el catálogo
+              "Total: 24.98 USD (promedio: 12.49 USD). Todos por menos de 30 USD.")
+    m = ev.answer_metrics(answer, "Juegos de granja por menos de 30 USD", catalog)
+    assert m["titulos_fuera_del_catalogo"] == ["Moonfarm Story"]
+    malos = [x["importe"] for x in m["importes_que_no_coinciden_con_el_catalogo"]]
+    assert malos == [19.99, 12.0]  # suma, promedio e importe de la solicitud se aceptan
+    assert m["importes_revisados"] == 6
+
+
+def test_titulo_con_subtitulo_omitido_cuenta_como_del_catalogo():
+    cat = _cat(["Leaf Blower Revolution - Idle Game", "Journey"])
+    assert ev.in_catalog("Leaf Blower Revolution", cat)
+    assert not ev.in_catalog("Leaf Blower Revolutions", cat)  # el prefijo debe terminar en palabra completa
+    assert not ev.in_catalog("Journey 2", cat)
+
+
+def test_linea_base_usa_el_mismo_modelo_sin_herramientas(catalog):
+    client = FakeClient(lambda kwargs, n: llm_message("- **Moonfarm Story** — 12.00 USD — Windows"))
+    rows = ev.run_baseline(client, "modelo-x", catalog)
+    assert [r["caso"] for r in rows] == [1, 2, 3, 4, 5, 6]
+    for req in client.requests:
+        assert "tools" not in req and req["model"] == "modelo-x" and req["temperature"] == 0.2
+        assert req["messages"][0] == {"role": "system", "content": ev.BASELINE_PROMPT}
+    assert rows[0]["metricas"]["titulos_fuera_del_catalogo"] == ["Moonfarm Story"]
+    assert "segundos" in rows[0] and rows[0]["error"] is None
+
+
+def test_linea_base_registra_errores_sin_interrumpir(catalog):
+    client = FakeClient(lambda kwargs, n: RuntimeError("429"))
+    rows = ev.run_baseline(client, "m", catalog, only={5})
+    assert len(rows) == 1 and rows[0]["error"].startswith("RuntimeError") and rows[0]["respuesta"] == ""
+
+
+def test_tabla_de_metricas_admite_agente_y_linea_base(tmp_path, catalog):
+    agente = {"meta": {}, "casos": [{"caso": 3, "solicitud": "granja", "resultado": {
+        "answer": "- **Willowbrook Farm** — 14.99 USD\n- **Turnip Hollow** — 9.99 USD\nTotal: 24.98 USD",
+        "tool_calls_used": 1, "max_tool_calls": 5, "limit_reached": False, "error": None,
+        "trace": [{"n": 1, "id": "a", "name": "calcular_total", "arguments": {}, "ok": True, "duration_ms": 1,
+                   "result": {"ok": True, "total_usd": 24.98, "promedio_usd": 12.49,
+                              "juegos": [{"nombre": "Willowbrook Farm"}, {"nombre": "Turnip Hollow"}]}}]}}]}
+    base = {"meta": {}, "casos": [{"caso": 3, "solicitud": "granja", "respuesta": "- **Moonfarm Story** — 5 USD"}]}
+    (tmp_path / "a.json").write_text(json.dumps(agente), encoding="utf-8")
+    (tmp_path / "b.json").write_text(json.dumps(base), encoding="utf-8")
+    rows = ev.metrics_table([tmp_path / "a.json", tmp_path / "b.json"], catalog).splitlines()[2:]
+    assert rows[0] == "| `a.json` | 3 | 1 | 2 | 0 | 0 | 3 | 0 |"
+    assert rows[1] == "| `b.json` | 3 | 0 | 1 | 1 | — | 1 | 1 |"
+
+
+def test_tabla_de_metricas_no_cuenta_como_ceros_los_casos_sin_respuesta(tmp_path, catalog):
+    base = {"meta": {}, "casos": [
+        {"caso": 1, "solicitud": "s", "respuesta": "", "error": "APITimeoutError: Request timed out."},
+        {"caso": 6, "solicitud": "s", "respuesta": "", "error": None, "finish_reason": "length"}]}
+    (tmp_path / "b.json").write_text(json.dumps(base), encoding="utf-8")
+    rows = ev.metrics_table([tmp_path / "b.json"], catalog).splitlines()[2:]
+    assert rows[0] == "| `b.json` | 1 | 0 | sin respuesta: APITimeoutError | — | — | — | — |"
+    assert rows[1] == "| `b.json` | 6 | 0 | sin respuesta: respuesta vacía (finish_reason=length) | — | — | — | — |"
+
+
+def test_linea_base_se_detiene_si_los_dos_primeros_casos_agotan_el_tiempo(catalog):
+    class APITimeoutError(Exception):
+        pass
+
+    client = FakeClient(lambda kwargs, n: APITimeoutError("Request timed out."))
+    rows = ev.run_baseline(client, "m", catalog, only={1, 2, 3, 4, 6})
+    assert [r["caso"] for r in rows] == [1, 2] and len(client.requests) == 2
+
+
+def test_linea_base_continua_si_solo_uno_de_los_dos_primeros_agota_el_tiempo(catalog):
+    class APITimeoutError(Exception):
+        pass
+
+    client = FakeClient(lambda kwargs, n: APITimeoutError("t") if n == 0 else llm_message("ok"))
+    rows = ev.run_baseline(client, "m", catalog, only={1, 2, 3, 4, 6})
+    assert [r["caso"] for r in rows] == [1, 2, 3, 4, 6]
