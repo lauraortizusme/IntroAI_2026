@@ -280,9 +280,11 @@ ocultar los casos en los que no hubo resultados o se produjo un error, y muestra
 
 ## 10. Instalación y ejecución
 
-1. Clonar el repositorio e instalar las dependencias:
+1. Clonar el repositorio (el proyecto está en la rama `proyecto-final-videojuegos`) e instalar las dependencias:
 
    ```bash
+   git clone -b proyecto-final-videojuegos https://github.com/lauraortizusme/IntroAI_2026.git steam-game-agent
+   cd steam-game-agent
    pip install -r requirements.txt
    ```
 
@@ -320,6 +322,28 @@ ocultar los casos en los que no hubo resultados o se produjo un error, y muestra
 **Google Colab:** abrir `notebooks/steam_agent_colab.ipynb`, crear el secreto `NVIDIA_API_KEY` y ejecutar las celdas
 en orden (instala dependencias, obtiene el código, prepara datos y embeddings, prueba el agente y lanza Gradio).
 
+**Reproducir todo desde cero (Windows, cmd):**
+
+```bat
+git clone -b proyecto-final-videojuegos https://github.com/lauraortizusme/IntroAI_2026.git steam-game-agent
+cd steam-game-agent
+py -3.11 -m venv .venv
+.venv\Scriptsctivate
+python -m pip install -r requirements-dev.txt -r requirements-data.txt
+copy .env.example .env
+notepad .env
+python -m pytest
+python scripts\prepare_data.py
+python scriptsuild_embeddings.py
+python scriptsun_evaluation.py
+python srcpp.py
+```
+
+En `notepad .env` se escribe la clave en `NVIDIA_API_KEY`. `prepare_data.py` (descarga ≈590 MB) y
+`build_embeddings.py` (≈32 peticiones) son opcionales porque el repositorio ya incluye los datos; `prepare_data.py`
+usa la última revisión del dataset, así que si cambió, el catálogo puede diferir y hay que regenerar los embeddings.
+`run_evaluation.py` también es opcional (≈15 peticiones; se puede ejecutar por partes con `--only`).
+
 Variables opcionales: `NVIDIA_BASE_URL`, `NVIDIA_LLM_MODEL`, `NVIDIA_EMBED_MODEL`, `MAX_TOOL_CALLS`, `CATALOG_PATH`.
 
 ## 11. Pruebas y resultados
@@ -331,7 +355,7 @@ pip install -r requirements-dev.txt
 python -m pytest
 ```
 
-**105 pruebas, todas pasan** (última ejecución: 2026-11-11). Cubren: filtros y su verificación, orden por relevancia
+**106 pruebas, todas pasan** (última ejecución: 2026-11-12). Cubren: filtros y su verificación, orden por relevancia
 de etiquetas con la popularidad como desempate, búsqueda semántica con filtros obligatorios, fichas, totales (incluidos
 títulos inexistentes y aritmética en centavos), validación de argumentos y errores controlados, ciclo del agente con un
 modelo simulado (traza, argumentos inválidos, límite de cinco llamadas, llamadas en paralelo que lo exceden, errores de
@@ -456,7 +480,7 @@ lo que la protección de la aplicación no se ejercitó con el modelo real.
 │   └── config.py          rutas, modelos y límites
 ├── scripts/               prepare_data · build_embeddings · run_evaluation · make_sample_data · make_notebook
 ├── notebooks/             steam_agent_colab.ipynb
-├── tests/                 105 pruebas automatizadas
+├── tests/                 106 pruebas automatizadas
 └── results/               evidencia de la evaluación manual y anexo de trazas completas
 ```
 

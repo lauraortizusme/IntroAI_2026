@@ -38,6 +38,14 @@ def test_por_defecto_no_descarga_datos_ni_regenera_embeddings():
     assert "requirements-data.txt" in datos  # datasets + pyarrow, igual que en local
 
 
+def test_clona_la_rama_del_proyecto_o_pide_el_zip():
+    celda = next(src for src in code_cells() if "REPO_URL" in src)
+    assert re.search(r'^REPO_BRANCH = "proyecto-final-videojuegos"$', celda, flags=re.M)
+    assert '["git", "clone", "-b", REPO_BRANCH, REPO_URL, str(PROJECT_DIR)]' in celda
+    # Sin REPO_URL se mantiene la alternativa de subir el zip.
+    assert re.search(r"if REPO_URL:.*else:.*files\.upload\(\)", celda, flags=re.S)
+
+
 def test_la_clave_no_se_escribe_en_el_notebook():
     assert "nvapi-" not in NB.read_text(encoding="utf-8")
     assert any('userdata.get("NVIDIA_API_KEY")' in src for src in code_cells())  # la clave sale de los secretos

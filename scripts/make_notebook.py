@@ -20,17 +20,19 @@ y activa *Acceso desde el notebook*. **No pegues la clave en el código ni en la
     ("code", "%pip install -q \"openai>=1.40\" \"pandas>=2.0\" \"numpy>=1.24\" \"gradio>=4.44\" \"python-dotenv>=1.0\""),
 
     ("md", """## 2. Obtener el código del proyecto
-Opción A: pon la URL de tu repositorio en `REPO_URL`. Opción B: déjala vacía y sube `steam-game-agent.zip` cuando se pida."""),
+Opción A (por defecto): se clona la rama `REPO_BRANCH` de `REPO_URL`. Opción B: deja `REPO_URL` vacía y sube
+`steam-game-agent.zip` cuando se pida."""),
     ("code", '''import pathlib
 import subprocess
 import sys
 
-REPO_URL = ""  # ← p. ej. "https://github.com/usuario/steam-game-agent"
+REPO_URL = "https://github.com/lauraortizusme/IntroAI_2026.git"  # vacía → se pide el zip
+REPO_BRANCH = "proyecto-final-videojuegos"
 PROJECT_DIR = pathlib.Path("/content/steam-game-agent")
 
 if not PROJECT_DIR.exists():
     if REPO_URL:
-        subprocess.run(["git", "clone", REPO_URL, str(PROJECT_DIR)], check=True)
+        subprocess.run(["git", "clone", "-b", REPO_BRANCH, REPO_URL, str(PROJECT_DIR)], check=True)
     else:
         from google.colab import files
 
